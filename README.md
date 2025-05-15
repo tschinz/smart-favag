@@ -27,6 +27,20 @@ The **smart-favag** project breathes new life into a historical FAVAG slave cloc
 - **Rust 🦀**: Modern, safe, and performant systems programming language.
 - **[embassy-rs](https://embassy.dev/)**: Async embedded framework for Rust, used for structured concurrency, timing, and hardware abstraction.
 
+## Setup
+
+A `.env` file is required for the project. You can create one by copying the example:
+
+```bash
+# Target selection for the build script
+#TARGET=rp2040
+TARGET=rp235x
+
+# WiFi configuration
+WIFI_SSID="MyHomeWiFi"
+WIFI_PASSWORD="SuperSecretPassword123"
+```
+
 ## Roadmap
 
 - [x] Basic impulse driving of FAVAG mechanism

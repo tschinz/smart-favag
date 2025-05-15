@@ -13,13 +13,38 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Chip {
+    RP2040,
+    RP235x,
+}
+
+#[cfg(feature = "rp2040")]
+pub const TARGET_CHIP: Chip = Chip::RP2040;
+
+#[cfg(not(feature = "rp2040"))]
+pub const TARGET_CHIP: Chip = Chip::RP235x;
+
 fn main() {
     // Put `memory.x` in our output directory and ensure it's
     // on the linker search path.
+    // load the environment variables from the .env file
+    let target = TARGET_CHIP;
+
+    //let file: &str = if TARGET_CHIP == Chip::RP2040 {
+    //    "memory-rp2040.x"
+    //} else {
+    //    "memory-rp235x.x"
+    //};
+    let file: &str = "memory.x";
+    let data: &[u8] = match target {
+        Chip::RP2040 => include_bytes!("memory-rp2040.x"),
+        Chip::RP235x => include_bytes!("memory-rp235x.x"),
+    };
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    File::create(out.join("memory.x"))
+    File::create(out.join(file))
         .unwrap()
-        .write_all(include_bytes!("memory.x"))
+        .write_all(data)
         .unwrap();
     println!("cargo:rustc-link-search={}", out.display());
 
@@ -27,9 +52,12 @@ fn main() {
     // any file in the project changes. By specifying `memory.x`
     // here, we ensure the build script is only re-run when
     // `memory.x` is changed.
-    println!("cargo:rerun-if-changed=memory.x");
+    println!("cargo:rerun-if-changed={}", file);
 
     println!("cargo:rustc-link-arg-bins=--nmagic");
     println!("cargo:rustc-link-arg-bins=-Tlink.x");
+    if target == Chip::RP2040 {
+        println!("cargo:rustc-link-arg-bins=-Tlink-rp.x");
+    }
     println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
 }

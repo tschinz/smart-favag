@@ -4,6 +4,9 @@ name = "smart-favag"
 version = "0.1.0"
 license = "MIT"
 
+[features]
+rp2040 = []
+rp235x = []
 
 [dependencies]
 embassy-embedded-hal = { version = "0.3.0", path = "../embassy/embassy-embedded-hal", features = [

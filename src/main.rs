@@ -1,63 +1,31 @@
-//! This example tests the RP Pico 2 W onboard LED.
-//!
-//! It does not work with the RP Pico 2 board. See `blinky.rs`.
-
 #![no_std]
 #![no_main]
 
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
+use defmt::info;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_rp::bind_interrupts;
-use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIO0};
-use embassy_rp::pio::{InterruptHandler, Pio};
-use embassy_time::{Duration, Timer};
+use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_rp::pio::Pio;
+use embassy_time::{Duration, Instant, Timer, with_deadline};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-// Program metadata for `picotool info`.
-// This isn't needed, but it's recommended to have these minimal entries.
-#[unsafe(link_section = ".bi_entries")]
-#[used]
-pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
-    embassy_rp::binary_info::rp_program_name!(c"Blinky Example"),
-    embassy_rp::binary_info::rp_program_description!(
-        c"This example tests the RP Pico 2 W's onboard LED, connected to GPIO 0 of the cyw43 \
-        (WiFi chip) via PIO 0 over the SPI bus."
-    ),
-    embassy_rp::binary_info::rp_cargo_version!(),
-    embassy_rp::binary_info::rp_program_build_attribute!(),
-];
-
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
-});
-
-#[embassy_executor::task]
-async fn cyw43_task(
-    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
-) -> ! {
-    runner.run().await
-}
+use smart_favag::debounce::*;
+use smart_favag::irq::*;
+use smart_favag::wifi::*;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
-    // Flashing of FW and CLM directly in the program
-    //let fw = include_bytes!("../embassy/cyw43-firmware/43439A0.bin");
-    //let clm = include_bytes!("../embassy/cyw43-firmware/43439A0_clm.bin");
 
-    // To make flashing faster for development, you may want to flash the firmwares independently
-    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-    //     probe-rs download embassy/cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-    //     probe-rs download embassy/cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-    let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    // Wifi Chip Configuration
+    let (fw, clm) = flashing_cyw43_fw();
 
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
     let mut pio = Pio::new(p.PIO0, Irqs);
+
     let spi = PioSpi::new(
         &mut pio.common,
         pio.sm0,
@@ -73,14 +41,52 @@ async fn main(spawner: Spawner) {
     let state = STATE.init(cyw43::State::new());
     let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
     unwrap!(spawner.spawn(cyw43_task(runner)));
-
     control.init(clm).await;
     control
         .set_power_management(cyw43::PowerManagementMode::PowerSave)
         .await;
 
+    // Button
+    let mut btn = Debouncer::new(Input::new(p.PIN_9, Pull::Up), Duration::from_millis(20));
+
+    // Led duration
     let delay = Duration::from_millis(500);
+
     loop {
+        // // button pressed
+        // btn.debounce().await;
+        // let start = Instant::now();
+        // info!("Button Press");
+
+        // match with_deadline(start + Duration::from_secs(1), btn.debounce()).await {
+        //     // Button Released < 1s
+        //     Ok(_) => {
+        //         info!("Button pressed for: {}ms", start.elapsed().as_millis());
+        //         continue;
+        //     }
+        //     // button held for > 1s
+        //     Err(_) => {
+        //         info!("Button Held");
+        //     }
+        // }
+
+        // match with_deadline(start + Duration::from_secs(1), btn.debounce()).await {
+        //     // Button Released < 1s
+        //     Ok(_) => {
+        //         info!("Button pressed for: {}ms", start.elapsed().as_millis());
+        //         continue;
+        //     }
+        //     // button held for > 1s
+        //     Err(_) => {
+        //         info!("Button Held");
+        //     }
+        // }
+
+        // // wait for button release before handling another press
+        // btn.debounce().await;
+        // info!("Button pressed for: {}ms", start.elapsed().as_millis());
+
+        // Led control
         info!("led on!");
         control.gpio_set(0, true).await;
         Timer::after(delay).await;
