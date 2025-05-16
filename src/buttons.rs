@@ -1,7 +1,5 @@
 use defmt::info;
-use embassy_rp::Peri;
-use embassy_rp::gpio::{Input, Level, Pull};
-use embassy_rp::peripherals::PIN_9;
+use embassy_rp::gpio::{Input, Level};
 use embassy_time::{Duration, Instant, Timer, with_deadline};
 use {defmt_rtt as _, panic_probe as _};
 

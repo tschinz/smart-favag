@@ -1,7 +1,8 @@
 #![no_std]
 
-pub mod debounce;
+pub mod buttons;
 pub mod helpers;
 pub mod irq;
-pub mod output;
+pub mod outputs;
+pub mod watchdog;
 pub mod wifi;

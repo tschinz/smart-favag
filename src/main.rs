@@ -4,14 +4,13 @@
 use defmt::{info, unwrap};
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
-use embassy_rp::watchdog::*;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
 
-use smart_favag::debounce::*;
-//use smart_favag::irq::*;
-use smart_favag::output::*;
+use smart_favag::buttons::*;
+use smart_favag::outputs::*;
+use smart_favag::watchdog::*;
 use smart_favag::wifi::*;
 
 static PIN_IN1: PinMutexType = Mutex::new(None);
@@ -24,8 +23,8 @@ async fn main(spawner: Spawner) {
   let p = embassy_rp::init(Default::default());
 
   // create watchdog (2sec)
-  let mut watchdog = Watchdog::new(p.WATCHDOG);
   let delay_watchdog = Duration::from_millis(2_000);
+  let watchdog = RpWatchdog::new(p.WATCHDOG, delay_watchdog);
 
   // extract singleton pins for Wifi
   let wifi_pins = WifiPins { pwr_pin: p.PIN_23, cs_pin: p.PIN_25, sck_pin: p.PIN_24, mosi_pin: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
@@ -63,17 +62,14 @@ async fn main(spawner: Spawner) {
 
   spawner.spawn(pwm_set_dutycycle(p.PWM_SLICE2, p.PIN_4)).unwrap();
 
-  // start watchdog
-  watchdog.start(delay_watchdog);
-  info!("Started the watchdog timer");
-  info!("main blink loop");
+  // start watchdog task
+  spawner.spawn(feeder(watchdog)).unwrap();
+
+  // main loop
   loop {
-    watchdog.feed();
     wifi.led_on().await;
     Timer::after(delay_blink).await;
-    watchdog.feed();
     wifi.led_off().await;
     Timer::after(delay_blink).await;
-    watchdog.feed();
   }
 }
