@@ -3,44 +3,38 @@ use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::unwrap;
 use embassy_executor::Spawner;
 use embassy_rp::{
-  Peripherals,
+  Peri,
   gpio::{Level, Output},
-  //peripherals::{DMA_CH0, PIO0},
-  peripherals::{DMA_CH0, PIO0},
+  peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0},
   pio::Pio,
 };
 
 use static_cell::StaticCell;
 
-//pub struct WifiPins {
-//  pub pwr_pin: PIN_23,
-//  pub cs_pin: PIN_25,
-//  pub sck_pin: PIN_24,
-//  pub mosi_pin: PIN_29,
-//  pub dma_ch0: DMA_CH0,
-//  pub pio0: PIO0,
-//}
+pub struct WifiPins {
+  pub pwr_pin: Peri<'static, PIN_23>,
+  pub cs_pin: Peri<'static, PIN_25>,
+  pub sck_pin: Peri<'static, PIN_24>,
+  pub mosi_pin: Peri<'static, PIN_29>,
+  pub dma_ch0: Peri<'static, DMA_CH0>,
+  pub pio0: Peri<'static, PIO0>,
+}
 
 pub struct Wifi {
   control: cyw43::Control<'static>,
 }
 
 impl Wifi {
-  //pub async fn new(spawner: &Spawner, wifi_pins: WifiPins) -> Self {
-  pub async fn new(spawner: &Spawner, p: Peripherals) -> Self {
+  pub async fn new(spawner: &Spawner, wifi_pins: WifiPins) -> Self {
     // Firmware and CLM selection
     let (fw, clm) = Self::load_fw_clm();
 
     // SPI setup
-    //let pwr = Output::new(wifi_pins.pwr_pin, Level::Low);
-    //let cs = Output::new(wifi_pins.cs_pin, Level::High);
-    //let mut pio = Pio::new(wifi_pins.pio0, Irqs);
-    let pwr = Output::new(p.PIN_23, Level::Low);
-    let cs = Output::new(p.PIN_25, Level::High);
-    let mut pio = Pio::new(p.PIO0, Irqs);
+    let pwr = Output::new(wifi_pins.pwr_pin, Level::Low);
+    let cs = Output::new(wifi_pins.cs_pin, Level::High);
+    let mut pio = Pio::new(wifi_pins.pio0, Irqs);
 
-    //let spi = PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, wifi_pins.sck_pin, wifi_pins.mosi_pin, wifi_pins.dma_ch0);
-    let spi = PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, p.PIN_24, p.PIN_29, p.DMA_CH0);
+    let spi = PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, wifi_pins.sck_pin, wifi_pins.mosi_pin, wifi_pins.dma_ch0);
 
     // CYW43 initialization
     static STATE: StaticCell<cyw43::State> = StaticCell::new();

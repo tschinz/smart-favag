@@ -3,50 +3,77 @@
 
 use defmt::{info, unwrap};
 use embassy_executor::Spawner;
-use embassy_rp::gpio::{Level, Output};
+use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_rp::watchdog::*;
 use embassy_sync::mutex::Mutex;
-use embassy_time::Duration;
+use embassy_time::{Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
 
-//use smart_favag::debounce::*;
+use smart_favag::debounce::*;
 //use smart_favag::irq::*;
 use smart_favag::output::*;
 use smart_favag::wifi::*;
 
-static LED: LedType = Mutex::new(None);
+static PIN_IN1: PinMutexType = Mutex::new(None);
+static PIN_IN2: PinMutexType = Mutex::new(None);
+static PIN_EN: PinMutexType = Mutex::new(None);
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
+  info!("Init Clock");
   let p = embassy_rp::init(Default::default());
 
-  // extract singleton pins
-  //let wifi_pins = WifiPins { pwr_pin: p.PIN_23, cs_pin: p.PIN_25, sck_pin: p.PIN_24, mosi_pin: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
+  // create watchdog (2sec)
+  let mut watchdog = Watchdog::new(p.WATCHDOG);
+  let delay_watchdog = Duration::from_millis(2_000);
+
+  // extract singleton pins for Wifi
+  let wifi_pins = WifiPins { pwr_pin: p.PIN_23, cs_pin: p.PIN_25, sck_pin: p.PIN_24, mosi_pin: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
 
   // WifiChip abstraction
-  //let mut wifi = Wifi::new(&spawner, wifi_pins).await;
-  let mut wifi = Wifi::new(&spawner, p).await;
+  let mut wifi = Wifi::new(&spawner, wifi_pins).await;
 
-  //let led = Output::new(p.PIN_25, Level::High);
-  // inner scope is so that once the mutex is written to, the MutexGuard is dropped, thus the
-  // Mutex is released
-  //{
-  //  *(LED.lock().await) = Some(led);
-  //}
-  //let dt = 1000 * 1_000_000;
-  //let k = 1.003;
-  //let delay_1 = Duration::from_nanos(dt);
-  //let delay_2 = Duration::from_nanos((dt as f64 * k) as u64);
-  //unwrap!(spawner.spawn(toggle_led(&LED, delay_1)));
-  //unwrap!(spawner.spawn(toggle_led(&LED, delay_2)));
+  // Clock output
+  let delay_clock = Duration::from_millis(500);
+  let delay_en_on = Duration::from_millis(350);
+  let pin_in1 = Output::new(p.PIN_10, Level::High);
+  let pin_in2 = Output::new(p.PIN_11, Level::Low);
+  let pin_en = Output::new(p.PIN_12, Level::High);
+  // inner scope is so that once the mutex is written to, the MutexGuard is dropped, thus the Mutex is released
+  {
+    *(PIN_IN1.lock().await) = Some(pin_in1);
+    *(PIN_IN2.lock().await) = Some(pin_in2);
+    *(PIN_EN.lock().await) = Some(pin_en);
+  }
 
-  let delay = embassy_time::Duration::from_millis(500);
+  // Button debounce
+  let pin_btn_1 = Input::new(p.PIN_9, Pull::Up);
+  let delay_debounce = Duration::from_millis(20);
+
+  // start output tasks
+  info!("Start in1, in2 and en tasks");
+  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_clock)));
+  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_clock)));
+  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_EN, delay_en_on)));
+
+  // start button tasks
+  unwrap!(spawner.spawn(debounce_pin(pin_btn_1, delay_debounce)));
+
+  let delay_blink = Duration::from_millis(1000);
+
+  spawner.spawn(pwm_set_dutycycle(p.PWM_SLICE2, p.PIN_4)).unwrap();
+
+  // start watchdog
+  watchdog.start(delay_watchdog);
+  info!("Started the watchdog timer");
+  info!("main blink loop");
   loop {
-    info!("LED on!");
+    watchdog.feed();
     wifi.led_on().await;
-    embassy_time::Timer::after(delay).await;
-
-    info!("LED off!");
+    Timer::after(delay_blink).await;
+    watchdog.feed();
     wifi.led_off().await;
-    embassy_time::Timer::after(delay).await;
+    Timer::after(delay_blink).await;
+    watchdog.feed();
   }
 }
