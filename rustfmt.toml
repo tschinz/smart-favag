@@ -1,0 +1,18 @@
+edition = "2024"
+
+# Style & Readability
+tab_spaces = 2
+max_width = 160
+
+#indent_style = "Block"
+#trailing_comma = "Always"
+
+# Imports
+#merge_imports = true
+#reorder_imports = true
+
+# Embedded-friendly formatting (optional but recommended)
+use_small_heuristics = "Max" # Forces consistent multi-line formatting even for small functions
+
+# Optional, but for Rust Embedded often good:
+newline_style = "Unix" # Consistent line endings

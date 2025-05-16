@@ -3,7 +3,7 @@
 #
 set dotenv-load
 rust_env := "rustup show"
-rust_edition := "2021"
+rust_edition := "2024"
 open := if os() == "linux" {
   "xdg-open"
 } else if os() == "macos" {
