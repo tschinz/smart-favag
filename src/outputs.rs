@@ -10,17 +10,6 @@ use embassy_time::{Duration, Ticker, Timer};
 pub type PinMutexType = Mutex<ThreadModeRawMutex, Option<Output<'static>>>;
 pub type PinType = Option<Output<'static>>;
 
-pub struct Outputs {
-  led_g: Output<'static>,
-  led_o: Output<'static>,
-  led_r: Output<'static>,
-  in1: Output<'static>,
-  in2: Output<'static>,
-  en: Output<'static>,
-}
-
-impl Outputs {}
-
 #[embassy_executor::task(pool_size = 3)]
 pub async fn toggle_shared_pin(pin: &'static PinMutexType, delay: Duration) {
   let mut ticker = Ticker::every(delay);
@@ -36,17 +25,15 @@ pub async fn toggle_shared_pin(pin: &'static PinMutexType, delay: Duration) {
 }
 
 #[embassy_executor::task]
-pub async fn pwm_set_dutycycle(slice: Peri<'static, PWM_SLICE2>, pin: Peri<'static, PIN_4>) {
+pub async fn pwm_pin4(slice: Peri<'static, PWM_SLICE2>, pin: Peri<'static, PIN_4>, freq: f64, duty_cycle: u8) {
   // If we aim for a specific frequency, here is how we can calculate the top value.
   // The top value sets the period of the PWM cycle, so a counter goes from 0 to top and then wraps around to 0.
   // Every such wraparound is one PWM cycle. So here is how we get 2Hz:
-  let desired_freq_hz = 0.5;
   let clock_freq_hz = embassy_rp::clocks::clk_sys_freq();
   let divider = 255u8;
-  let period = (clock_freq_hz as f64 / (desired_freq_hz * divider as f64)) as u16 - 1;
-  info!("{}, {}, {}, {}", desired_freq_hz, clock_freq_hz, divider, period);
+  let period = (clock_freq_hz as f64 / (freq * divider as f64)) as u16 - 1;
+  info!("{}, {}, {}, {}", freq, clock_freq_hz, divider, period);
   // Duty cycle as a percentage
-  let duty_cycle = 70;
   let mut c = Config::default();
   c.top = period;
   c.divider = divider.into();

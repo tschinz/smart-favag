@@ -33,16 +33,22 @@ async fn main(spawner: Spawner) {
   let mut wifi = Wifi::new(&spawner, wifi_pins).await;
 
   // Clock output
-  let delay_clock = Duration::from_millis(500);
+  let delay_1min = Duration::from_millis(1000 * 60);
+  let delay_1s = Duration::from_millis(1000);
+  let delay_500ms = Duration::from_millis(500);
+  let delay_250ms = Duration::from_millis(250);
   let delay_en_on = Duration::from_millis(350);
-  let pin_in1 = Output::new(p.PIN_10, Level::High);
-  let pin_in2 = Output::new(p.PIN_11, Level::Low);
-  let pin_en = Output::new(p.PIN_12, Level::High);
+  let delay_en_off = Duration::from_millis(150);
+  let en_freq: f64 = 0.5; // 2Hz
+  let en_duty_cycle: u8 = 70; // 70% duty cycle
+  let pin_in1 = Output::new(p.PIN_2, Level::High);
+  let pin_in2 = Output::new(p.PIN_3, Level::Low);
+  //let pin_en = Output::new(p.PIN_4, Level::High);
   // inner scope is so that once the mutex is written to, the MutexGuard is dropped, thus the Mutex is released
   {
     *(PIN_IN1.lock().await) = Some(pin_in1);
     *(PIN_IN2.lock().await) = Some(pin_in2);
-    *(PIN_EN.lock().await) = Some(pin_en);
+    //*(PIN_EN.lock().await) = Some(pin_en);
   }
 
   // Button debounce
@@ -51,16 +57,14 @@ async fn main(spawner: Spawner) {
 
   // start output tasks
   info!("Start in1, in2 and en tasks");
-  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_clock)));
-  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_clock)));
-  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_EN, delay_en_on)));
+  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_1min)));
+  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_1min)));
+  // unwrap!(spawner.spawn(toggle_shared_pin(&PIN_EN, delay_en_on)));
 
   // start button tasks
   unwrap!(spawner.spawn(debounce_pin(pin_btn_1, delay_debounce)));
 
-  let delay_blink = Duration::from_millis(1000);
-
-  spawner.spawn(pwm_set_dutycycle(p.PWM_SLICE2, p.PIN_4)).unwrap();
+  spawner.spawn(pwm_pin4(p.PWM_SLICE2, p.PIN_4, en_freq, en_duty_cycle)).unwrap();
 
   // start watchdog task
   spawner.spawn(feeder(watchdog)).unwrap();
@@ -68,8 +72,8 @@ async fn main(spawner: Spawner) {
   // main loop
   loop {
     wifi.led_on().await;
-    Timer::after(delay_blink).await;
+    Timer::after(delay_1s).await;
     wifi.led_off().await;
-    Timer::after(delay_blink).await;
+    Timer::after(delay_1s).await;
   }
 }
