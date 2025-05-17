@@ -8,37 +8,24 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker, Timer};
 
 pub struct ClockPins {
-  pub in1: Peri<'static, PIN_2>,
-  pub in2: Peri<'static, PIN_3>,
-  pub en: Peri<'static, PIN_4>,
+  pub in1: Output<'static>,
+  pub in2: Output<'static>,
+  pub en: Output<'static>,
 }
 
 #[embassy_executor::task(pool_size = 3)]
-pub async fn clock_ticks(pins: ClockPins) {
-  let delay_1min = Duration::from_millis(1000 * 60);
-  let delay_1s = Duration::from_millis(1000);
-  let delay_500ms = Duration::from_millis(500);
-  let delay_250ms = Duration::from_millis(250);
-  let delay_en_on = Duration::from_millis(350);
-  let delay_en_off = Duration::from_millis(150);
-  let en_freq: f64 = 0.5; // 2Hz
-  let en_duty_cycle: u8 = 70; // 70% duty cycle
-
-  let mut pin_in1 = Output::new(pins.in1, Level::High);
-  let mut pin_in2 = Output::new(pins.in2, Level::Low);
-  let mut pin_en = Output::new(pins.en, Level::High);
-
-  let mut tick = Ticker::every(delay_1s);
-  let mut en_on = Ticker::every(delay_en_on);
-  let mut en_off = Ticker::every(delay_en_off);
+pub async fn clock_ticks(mut pins: ClockPins, duration: Duration, en_on: Duration, en_off: Duration) {
+  let mut tick = Ticker::every(duration);
+  let mut en_on = Ticker::every(en_on);
+  let mut en_off = Ticker::every(en_off);
   loop {
     en_on.reset();
-    pin_en.set_high();
+    pins.en.set_high();
     en_on.next().await;
-    pin_in1.toggle();
-    pin_in2.toggle();
+    pins.in1.toggle();
+    pins.in2.toggle();
     en_off.reset();
-    pin_en.set_low();
+    pins.en.set_low();
     en_off.next().await;
 
     tick.next().await;
