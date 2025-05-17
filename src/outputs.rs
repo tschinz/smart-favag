@@ -1,14 +1,10 @@
 use defmt::info;
 use embassy_rp::Peri;
-use embassy_rp::gpio::Output;
 use embassy_rp::peripherals::{PIN_4, PWM_SLICE2};
 use embassy_rp::pwm::{Config, Pwm, SetDutyCycle};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker, Timer};
 
-pub type PinMutexType = Mutex<ThreadModeRawMutex, Option<Output<'static>>>;
-pub type PinType = Option<Output<'static>>;
+use crate::helpers::*;
 
 #[embassy_executor::task(pool_size = 3)]
 pub async fn toggle_shared_pin(pin: &'static PinMutexType, delay: Duration) {

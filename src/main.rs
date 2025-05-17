@@ -9,6 +9,8 @@ use embassy_time::{Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
 
 use smart_favag::buttons::*;
+use smart_favag::clock::*;
+use smart_favag::helpers::*;
 use smart_favag::outputs::*;
 use smart_favag::watchdog::*;
 use smart_favag::wifi::*;
@@ -27,47 +29,47 @@ async fn main(spawner: Spawner) {
   let watchdog = RpWatchdog::new(p.WATCHDOG, delay_watchdog);
 
   // extract singleton pins for Wifi
-  let wifi_pins = WifiPins { pwr_pin: p.PIN_23, cs_pin: p.PIN_25, sck_pin: p.PIN_24, mosi_pin: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
+  let wifi_pins = WifiPins { pwr: p.PIN_23, cs: p.PIN_25, sck: p.PIN_24, mosi: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
+
+  // extract singleton pins for clock
+  //let clock_pins = ClockPins { in1: p.PIN_10, in2: p.PIN_11, en: p.PIN_12 };
+  let clock_pins = ClockPins { in1: p.PIN_2, in2: p.PIN_3, en: p.PIN_4 };
 
   // WifiChip abstraction
   let mut wifi = Wifi::new(&spawner, wifi_pins).await;
 
   // Clock output
-  let delay_1min = Duration::from_millis(1000 * 60);
-  let delay_1s = Duration::from_millis(1000);
-  let delay_500ms = Duration::from_millis(500);
-  let delay_250ms = Duration::from_millis(250);
-  let delay_en_on = Duration::from_millis(350);
-  let delay_en_off = Duration::from_millis(150);
-  let en_freq: f64 = 0.5; // 2Hz
-  let en_duty_cycle: u8 = 70; // 70% duty cycle
-  let pin_in1 = Output::new(p.PIN_2, Level::High);
-  let pin_in2 = Output::new(p.PIN_3, Level::Low);
+  //let pin_in1 = Output::new(p.PIN_2, Level::High);
+  //let pin_in2 = Output::new(p.PIN_3, Level::Low);
   //let pin_en = Output::new(p.PIN_4, Level::High);
   // inner scope is so that once the mutex is written to, the MutexGuard is dropped, thus the Mutex is released
-  {
-    *(PIN_IN1.lock().await) = Some(pin_in1);
-    *(PIN_IN2.lock().await) = Some(pin_in2);
-    //*(PIN_EN.lock().await) = Some(pin_en);
-  }
+  //{
+  //  *(PIN_IN1.lock().await) = Some(pin_in1);
+  //  *(PIN_IN2.lock().await) = Some(pin_in2);
+  //  //*(PIN_EN.lock().await) = Some(pin_en);
+  //}
 
   // Button debounce
   let pin_btn_1 = Input::new(p.PIN_9, Pull::Up);
   let delay_debounce = Duration::from_millis(20);
 
+  // start clock tasks
+  unwrap!(spawner.spawn(clock_ticks(clock_pins)));
+
   // start output tasks
   info!("Start in1, in2 and en tasks");
-  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_1min)));
-  unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_1min)));
+  //unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_1min)));
+  //unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_1min)));
   // unwrap!(spawner.spawn(toggle_shared_pin(&PIN_EN, delay_en_on)));
 
   // start button tasks
   unwrap!(spawner.spawn(debounce_pin(pin_btn_1, delay_debounce)));
 
-  spawner.spawn(pwm_pin4(p.PWM_SLICE2, p.PIN_4, en_freq, en_duty_cycle)).unwrap();
+  //spawner.spawn(pwm_pin4(p.PWM_SLICE2, p.PIN_4, en_freq, en_duty_cycle)).unwrap();
 
   // start watchdog task
   spawner.spawn(feeder(watchdog)).unwrap();
+  let delay_1s = Duration::from_millis(1000);
 
   // main loop
   loop {

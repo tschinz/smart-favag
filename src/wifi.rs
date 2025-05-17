@@ -12,10 +12,10 @@ use embassy_rp::{
 use static_cell::StaticCell;
 
 pub struct WifiPins {
-  pub pwr_pin: Peri<'static, PIN_23>,
-  pub cs_pin: Peri<'static, PIN_25>,
-  pub sck_pin: Peri<'static, PIN_24>,
-  pub mosi_pin: Peri<'static, PIN_29>,
+  pub pwr: Peri<'static, PIN_23>,
+  pub cs: Peri<'static, PIN_25>,
+  pub sck: Peri<'static, PIN_24>,
+  pub mosi: Peri<'static, PIN_29>,
   pub dma_ch0: Peri<'static, DMA_CH0>,
   pub pio0: Peri<'static, PIO0>,
 }
@@ -30,11 +30,11 @@ impl Wifi {
     let (fw, clm) = Self::load_fw_clm();
 
     // SPI setup
-    let pwr = Output::new(wifi_pins.pwr_pin, Level::Low);
-    let cs = Output::new(wifi_pins.cs_pin, Level::High);
+    let pwr = Output::new(wifi_pins.pwr, Level::Low);
+    let cs = Output::new(wifi_pins.cs, Level::High);
     let mut pio = Pio::new(wifi_pins.pio0, Irqs);
 
-    let spi = PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, wifi_pins.sck_pin, wifi_pins.mosi_pin, wifi_pins.dma_ch0);
+    let spi = PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, wifi_pins.sck, wifi_pins.mosi, wifi_pins.dma_ch0);
 
     // CYW43 initialization
     static STATE: StaticCell<cyw43::State> = StaticCell::new();

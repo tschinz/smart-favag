@@ -1,3 +1,7 @@
+use embassy_rp::gpio::Output;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
+
 // Program metadata for `picotool info`.
 // This isn't needed, but it's recommended to have these minimal entries.
 #[unsafe(link_section = ".bi_entries")]
@@ -21,3 +25,6 @@ pub enum Chip {
 pub const TARGET_CHIP: Chip = Chip::RP2040;
 #[cfg(not(feature = "rp2040"))]
 pub const TARGET_CHIP: Chip = Chip::RP235x;
+
+pub type PinMutexType = Mutex<ThreadModeRawMutex, Option<Output<'static>>>;
+pub type PinType = Option<Output<'static>>;
