@@ -30,10 +30,10 @@ async fn main(spawner: Spawner) {
   let mut wifi = Wifi::new(&spawner, wifi_pins).await;
 
   // extract singleton pins for clock
-  let mut clock_pins = ClockPins { in1: Output::new(p.PIN_2, Level::High), in2: Output::new(p.PIN_3, Level::Low), en: Output::new(p.PIN_4, Level::Low) };
+  let clock_pins = ClockPins { in1: Output::new(p.PIN_2, Level::High), in2: Output::new(p.PIN_3, Level::Low), en: Output::new(p.PIN_4, Level::Low) };
   let delay_1m = Duration::from_millis(1000 * 60);
   let delay_1s = Duration::from_millis(1000);
-  let delay_500ms = Duration::from_millis(500);
+  //let delay_500ms = Duration::from_millis(500);
   let delay_250ms = Duration::from_millis(250);
   let delay_en_on = Duration::from_millis(350);
   let delay_en_off = Duration::from_millis(150);

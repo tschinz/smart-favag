@@ -1,11 +1,5 @@
-use defmt::info;
-use embassy_rp::Peri;
-use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{PIN_2, PIN_3, PIN_4, PIN_10, PIN_11, PIN_12, PWM_SLICE5};
-use embassy_rp::pwm::{Config, Pwm, SetDutyCycle};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Ticker, Timer};
+use embassy_rp::gpio::Output;
+use embassy_time::{Duration, Ticker};
 
 pub struct ClockPins {
   pub in1: Output<'static>,
