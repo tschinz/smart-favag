@@ -4,20 +4,16 @@
 use defmt::{info, unwrap};
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
 
+use embassy_sync::mutex::Mutex;
 use smart_favag::buttons::*;
 use smart_favag::clock::*;
 use smart_favag::helpers::*;
 use smart_favag::outputs::*;
 use smart_favag::watchdog::*;
 use smart_favag::wifi::*;
-
-static PIN_IN1: PinMutexType = Mutex::new(None);
-static PIN_IN2: PinMutexType = Mutex::new(None);
-static PIN_EN: PinMutexType = Mutex::new(None);
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -30,54 +26,56 @@ async fn main(spawner: Spawner) {
 
   // extract singleton pins for Wifi
   let wifi_pins = WifiPins { pwr: p.PIN_23, cs: p.PIN_25, sck: p.PIN_24, mosi: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
+  // WifiChip abstraction
+  let mut wifi = Wifi::new(&spawner, wifi_pins).await;
 
   // extract singleton pins for clock
-  //let clock_pins = ClockPins { in1: p.PIN_10, in2: p.PIN_11, en: p.PIN_12 };
   let mut clock_pins = ClockPins { in1: Output::new(p.PIN_2, Level::High), in2: Output::new(p.PIN_3, Level::Low), en: Output::new(p.PIN_4, Level::Low) };
-  let mut led_pins = ClockPins { in1: Output::new(p.PIN_10, Level::High), in2: Output::new(p.PIN_11, Level::Low), en: Output::new(p.PIN_12, Level::Low) };
   let delay_1m = Duration::from_millis(1000 * 60);
   let delay_1s = Duration::from_millis(1000);
   let delay_500ms = Duration::from_millis(500);
   let delay_250ms = Duration::from_millis(250);
   let delay_en_on = Duration::from_millis(350);
   let delay_en_off = Duration::from_millis(150);
-  let en_freq: f64 = 0.5; // 2Hz
-  let en_duty_cycle: u8 = 70; // 70% duty cycle
 
-  // WifiChip abstraction
-  let mut wifi = Wifi::new(&spawner, wifi_pins).await;
+  // PWM pin
+  let pwm_freq: f64 = 1_000.0; // 1kHz
+  let pwm_duty_cycle: u8 = 10; // 50% duty cycle
+  let pwm_pin12 = PwmPin12 { pin: p.PIN_12, slice: p.PWM_SLICE6 };
 
-  // Clock output
-  //let pin_in1 = Output::new(p.PIN_2, Level::High);
-  //let pin_in2 = Output::new(p.PIN_3, Level::Low);
-  //let pin_en = Output::new(p.PIN_4, Level::High);
+  // Shared Leds
+  static LED_GREEN: PinMutexType = Mutex::new(None);
+  static LED_ORANGE: PinMutexType = Mutex::new(None);
   // inner scope is so that once the mutex is written to, the MutexGuard is dropped, thus the Mutex is released
-  //{
-  //  *(PIN_IN1.lock().await) = Some(pin_in1);
-  //  *(PIN_IN2.lock().await) = Some(pin_in2);
-  //  //*(PIN_EN.lock().await) = Some(pin_en);
-  //}
+  {
+    *(LED_GREEN.lock().await) = Some(Output::new(p.PIN_10, Level::Low));
+    *(LED_ORANGE.lock().await) = Some(Output::new(p.PIN_11, Level::Low));
+  }
 
   // Button debounce
   let pin_btn_1 = Input::new(p.PIN_9, Pull::Up);
   let delay_debounce = Duration::from_millis(20);
 
-  // start clock tasks
+  // Start Tasks
+  info!("Start Tasks");
+  // start clock task
+  info!("Start clock task");
   unwrap!(spawner.spawn(clock_ticks(clock_pins, delay_1m, delay_en_on, delay_en_off)));
-  unwrap!(spawner.spawn(clock_ticks(led_pins, delay_1s, delay_en_on, delay_en_off)));
 
   // start output tasks
-  info!("Start in1, in2 and en tasks");
-  //unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN1, delay_1min)));
-  //unwrap!(spawner.spawn(toggle_shared_pin(&PIN_IN2, delay_1min)));
-  // unwrap!(spawner.spawn(toggle_shared_pin(&PIN_EN, delay_en_on)));
+  info!("Start led tasks");
+  unwrap!(spawner.spawn(toggle_shared_pin(&LED_GREEN, delay_1s)));
+  unwrap!(spawner.spawn(toggle_shared_pin(&LED_ORANGE, delay_250ms)));
 
   // start button tasks
+  info!("Start button debounce task");
   unwrap!(spawner.spawn(debounce_pin(pin_btn_1, delay_debounce)));
 
-  //spawner.spawn(pwm_pin4(p.PWM_SLICE2, p.PIN_4, en_freq, en_duty_cycle)).unwrap();
+  // start pwm task
+  spawner.spawn(task_pwm_pin12(pwm_pin12.slice, pwm_pin12.pin, pwm_freq, pwm_duty_cycle)).unwrap();
 
   // start watchdog task
+  info!("Start watchdog");
   spawner.spawn(feeder(watchdog)).unwrap();
   let delay_1s = Duration::from_millis(1000);
 
