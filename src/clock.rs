@@ -11,12 +11,10 @@ pub struct ClockPins {
 }
 
 #[embassy_executor::task]
-pub async fn clock_ticks(mut pins: ClockPins, duration: Duration, en_on: Duration, en_off: Duration) {
+pub async fn clock_ticks(mut pins: ClockPins, duration: Duration, en_on: Duration) {
   let mut tick_duration = duration;
   let mut tick = Ticker::every(tick_duration);
   let mut en_on = Ticker::every(en_on);
-  let mut en_off = Ticker::every(en_off);
-  let mut go_once = false;
   loop {
     let button_fut = BUTTON_CHANNEL.receive();
     let tick_fut = tick.next();
@@ -56,7 +54,5 @@ pub async fn clock_ticks(mut pins: ClockPins, duration: Duration, en_on: Duratio
     pins.in2.toggle();
     en_on.next().await;
     pins.en.set_low();
-    en_off.reset();
-    en_off.next().await;
   }
 }

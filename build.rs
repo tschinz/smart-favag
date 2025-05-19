@@ -8,6 +8,7 @@
 //! updating `memory.x` ensures a rebuild of the application with the
 //! new memory settings.
 
+use dotenvy::from_filename;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -57,4 +58,14 @@ fn main() {
     println!("cargo:rustc-link-arg-bins=-Tlink-rp.x");
   }
   println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
+
+  // Get .env values at compile time
+  from_filename(".env").ok();
+  if let Ok(ssid) = std::env::var("WIFI_SSID") {
+    println!("cargo:rustc-env=WIFI_SSID={}", ssid);
+  }
+
+  if let Ok(pass) = std::env::var("WIFI_PASS") {
+    println!("cargo:rustc-env=WIFI_PASS={}", pass);
+  }
 }

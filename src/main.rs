@@ -27,7 +27,8 @@ async fn main(spawner: Spawner) {
   // extract singleton pins for Wifi
   let wifi_pins = WifiPins { pwr: p.PIN_23, cs: p.PIN_25, sck: p.PIN_24, mosi: p.PIN_29, dma_ch0: p.DMA_CH0, pio0: p.PIO0 };
   // WifiChip abstraction
-  let mut wifi = Wifi::new(&spawner, wifi_pins).await;
+  let mut wifi = Wifi::new(&spawner, wifi_pins, None, None).await;
+  //let mut wifi = Wifi::new(&spawner, wifi_pins, Ipv4Cidr::new(Ipv4Address::new(192, 168, 69, 2), 24), Ipv4Address::new(192, 168, 69, 1)).await;
 
   // extract singleton pins for clock
   let clock_pins = ClockPins { in1: Output::new(p.PIN_2, Level::High), in2: Output::new(p.PIN_3, Level::Low), en: Output::new(p.PIN_4, Level::Low) };
@@ -35,8 +36,7 @@ async fn main(spawner: Spawner) {
   let delay_1s = Duration::from_millis(1000);
   //let delay_500ms = Duration::from_millis(500);
   let delay_250ms = Duration::from_millis(250);
-  let delay_en_on = Duration::from_millis(350);
-  let delay_en_off = Duration::from_millis(150);
+  let delay_en_on = Duration::from_millis(500);
 
   // PWM pin
   let pwm_freq: f64 = 1_000.0; // 1kHz
@@ -60,7 +60,7 @@ async fn main(spawner: Spawner) {
   info!("Start Tasks");
   // start clock task
   info!("Start clock task");
-  unwrap!(spawner.spawn(clock_ticks(clock_pins, delay_1m, delay_en_on, delay_en_off)));
+  unwrap!(spawner.spawn(clock_ticks(clock_pins, delay_1m, delay_en_on)));
 
   // start output tasks
   info!("Start led tasks");

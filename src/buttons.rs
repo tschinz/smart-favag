@@ -44,12 +44,12 @@ impl<'a> Debouncer<'a> {
 #[embassy_executor::task]
 pub async fn debounce_pin(pin: Input<'static>, duration: Duration) {
   let mut btn = Debouncer::new(pin, duration);
-  let mut release: bool = false;
+  let mut _release: bool;
   loop {
     // button pressed
     btn.debounce().await;
     let start = Instant::now();
-    release = false;
+    _release = false;
     info!("Button Press");
 
     match with_deadline(start + Duration::from_secs(1), btn.debounce()).await {
@@ -57,7 +57,7 @@ pub async fn debounce_pin(pin: Input<'static>, duration: Duration) {
       Ok(_) => {
         info!("Button pressed for: {}ms", start.elapsed().as_millis());
         BUTTON_CHANNEL.send(ButtonEvent::Clicked).await;
-        release = true;
+        _release = true;
         continue;
       }
       // button held for > 1s
@@ -65,14 +65,14 @@ pub async fn debounce_pin(pin: Input<'static>, duration: Duration) {
         info!("Button Held");
       }
     }
-    if !release {
+    if !_release {
       BUTTON_CHANNEL.send(ButtonEvent::Held).await;
     }
     match with_deadline(start + Duration::from_secs(5), btn.debounce()).await {
-      // Button released <5s
+      // Button _released <5s
       Ok(_) => {
         info!("Button pressed for: {}ms", start.elapsed().as_millis());
-        release = true;
+        _release = true;
         continue;
       }
       // button held for > >5s
@@ -80,7 +80,7 @@ pub async fn debounce_pin(pin: Input<'static>, duration: Duration) {
         info!("Button Long Held");
       }
     }
-    if !release {
+    if !_release {
       BUTTON_CHANNEL.send(ButtonEvent::LongHeld).await;
     }
     // wait for button release before handling another press

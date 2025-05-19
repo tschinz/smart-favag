@@ -7,6 +7,8 @@ license = "MIT"
 [features]
 rp2040 = []
 rp235x = []
+[build-dependencies]
+dotenvy = "0.15.7"
 
 [dependencies]
 embassy-embedded-hal = { version = "0.3.0", path = "../embassy/embassy-embedded-hal", features = [
